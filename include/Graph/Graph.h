@@ -179,3 +179,33 @@ public:
 private:
     std::unordered_map<Vertex, std::vector<Edge>> adj_list;
 };
+
+template<typename Vertex, typename Distance>
+Vertex find_optimal_warehouse_location(const Graph<Vertex, Distance>& graph) {
+    auto vertices = graph.vertices();
+    std::unordered_map<Vertex, Distance> total_distances;
+    Distance min_average_distance = std::numeric_limits<Distance>::max();
+    Vertex optimal_vertex;
+
+    for (const auto& v : vertices) {
+        Distance total_distance = 0;
+        for (const auto& other : vertices) {
+            if (v != other) {
+                auto path = graph.shortest_path(v, other);
+                Distance distance = 0;
+                for (const auto& edge : path) {
+                    distance += edge.distance;
+                }
+                total_distance += distance;
+            }
+        }
+        total_distances[v] = total_distance;
+        Distance average_distance = total_distance / (vertices.size() - 1);
+        if (average_distance < min_average_distance) {
+            min_average_distance = average_distance;
+            optimal_vertex = v;
+        }
+    }
+
+    return optimal_vertex;
+}
