@@ -168,9 +168,16 @@ public:
 
         for (Vertex at = to; at != from; at = predecessors[at]) {
             Vertex pred = predecessors[at];
-            auto it = std::find_if(adj_list.at(pred).begin(), adj_list.at(pred).end(),
-                [&at](const Edge& e) { return e.to == at; });
-            path.push_back(*it);
+            if (predecessors.find(at) != predecessors.end()) {
+                auto it = std::find_if(adj_list.at(pred).begin(), adj_list.at(pred).end(),
+                    [&at](const Edge& e) { return e.to == at; });
+                if (it != adj_list.at(pred).end()) {
+                    path.push_back(*it);
+                }
+            }
+            else {
+                break;
+            }
         }
         std::reverse(path.begin(), path.end());
         return path;
@@ -189,6 +196,8 @@ Vertex find_optimal_warehouse_location(const Graph<Vertex, Distance>& graph) {
 
     for (const auto& v : vertices) {
         Distance total_distance = 0;
+        int count = 0;
+
         for (const auto& other : vertices) {
             if (v != other) {
                 auto path = graph.shortest_path(v, other);
@@ -197,15 +206,15 @@ Vertex find_optimal_warehouse_location(const Graph<Vertex, Distance>& graph) {
                     distance += edge.distance;
                 }
                 total_distance += distance;
+                count++;
             }
         }
-        total_distances[v] = total_distance;
-        Distance average_distance = total_distance / (vertices.size() - 1);
+
+        Distance average_distance = total_distance / count;
         if (average_distance < min_average_distance) {
             min_average_distance = average_distance;
             optimal_vertex = v;
         }
     }
-
     return optimal_vertex;
 }
