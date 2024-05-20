@@ -3,11 +3,12 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
-#include <queue>
 #include <algorithm>
-#include <limits>
 #include <memory>
-#include <numeric>
+#include <iterator>
+#include <queue>
+#include <limits>
+#include <map>
 
 template<typename Vertex, typename Distance = double>
 class Graph {
@@ -16,6 +17,10 @@ public:
         Vertex from;
         Vertex to;
         Distance distance;
+
+        bool operator==(const Edge& other) const {
+            return from == other.from && to == other.to && distance == other.distance;
+        }
     };
 
     bool has_vertex(const Vertex& v) const {
@@ -23,7 +28,7 @@ public:
     }
 
     void add_vertex(const Vertex& v) {
-        adj_list[v];
+        adj_list.emplace(v, std::vector<Edge>());
     }
 
     bool remove_vertex(const Vertex& v) {
@@ -47,7 +52,7 @@ public:
     void add_edge(const Vertex& from, const Vertex& to, const Distance& d) {
         if (!has_vertex(from)) add_vertex(from);
         if (!has_vertex(to)) add_vertex(to);
-        adj_list[from].emplace_back(from, to, d);
+        adj_list[from].push_back(Edge{ from, to, d });
     }
 
     bool remove_edge(const Vertex& from, const Vertex& to) {
@@ -63,7 +68,15 @@ public:
     }
 
     bool remove_edge(const Edge& e) {
-        return remove_edge(e.from, e.to);
+        if (!has_vertex(e.from)) return false;
+        auto& edges = adj_list[e.from];
+        auto it = std::remove_if(edges.begin(), edges.end(),
+            [&e](const Edge& edge) { return edge == e; });
+        if (it != edges.end()) {
+            edges.erase(it, edges.end());
+            return true;
+        }
+        return false;
     }
 
     bool has_edge(const Vertex& from, const Vertex& to) const {
@@ -74,12 +87,15 @@ public:
     }
 
     bool has_edge(const Edge& e) const {
-        return has_edge(e.from, e.to);
+        if (!has_vertex(e.from)) return false;
+        const auto& edges = adj_list.at(e.from);
+        return std::any_of(edges.begin(), edges.end(),
+            [&e](const Edge& edge) { return edge == e; });
     }
 
-    std::vector<Edge> edges(const Vertex& vertex) const {
+    std::vector<Edge> edges(const Vertex& vertex) {
         if (!has_vertex(vertex)) return {};
-        return adj_list.at(vertex);
+        return adj_list[vertex];
     }
 
     size_t order() const {
@@ -89,6 +105,75 @@ public:
     size_t degree(const Vertex& v) const {
         if (!has_vertex(v)) return 0;
         return adj_list.at(v).size();
+    }
+
+    std::vector<Vertex> walk(const Vertex& start_vertex) const {
+        std::vector<Vertex> traversal;
+        if (!has_vertex(start_vertex)) return traversal;
+
+        std::queue<Vertex> q;
+        std::unordered_set<Vertex> visited;
+
+        q.push(start_vertex);
+        visited.insert(start_vertex);
+
+        while (!q.empty()) {
+            Vertex current = q.front();
+            q.pop();
+            traversal.push_back(current);
+
+            for (const auto& edge : adj_list.at(current)) {
+                if (visited.find(edge.to) == visited.end()) {
+                    q.push(edge.to);
+                    visited.insert(edge.to);
+                }
+            }
+        }
+
+        return traversal;
+    }
+
+    std::vector<Edge> shortest_path(const Vertex& from, const Vertex& to) const {
+        std::map<Vertex, Distance> distances;
+        std::map<Vertex, Vertex> predecessors;
+        for (const auto& [vertex, _] : adj_list) {
+            distances[vertex] = std::numeric_limits<Distance>::max();
+        }
+        distances[from] = 0;
+
+        auto compare = [&distances](const Vertex& a, const Vertex& b) {
+            return distances[a] > distances[b];
+            };
+        std::priority_queue<Vertex, std::vector<Vertex>, decltype(compare)> pq(compare);
+        pq.push(from);
+
+        while (!pq.empty()) {
+            Vertex current = pq.top();
+            pq.pop();
+
+            if (current == to) break;
+
+            for (const auto& edge : adj_list.at(current)) {
+                Distance new_dist = distances[current] + edge.distance;
+                if (new_dist < distances[edge.to]) {
+                    distances[edge.to] = new_dist;
+                    predecessors[edge.to] = current;
+                    pq.push(edge.to);
+                }
+            }
+        }
+
+        std::vector<Edge> path;
+        if (distances[to] == std::numeric_limits<Distance>::max()) return path;
+
+        for (Vertex at = to; at != from; at = predecessors[at]) {
+            Vertex pred = predecessors[at];
+            auto it = std::find_if(adj_list.at(pred).begin(), adj_list.at(pred).end(),
+                [&at](const Edge& e) { return e.to == at; });
+            path.push_back(*it);
+        }
+        std::reverse(path.begin(), path.end());
+        return path;
     }
 
 private:
