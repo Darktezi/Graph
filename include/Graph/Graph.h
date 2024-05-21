@@ -56,7 +56,7 @@ public:
     }
 
     bool remove_edge(const Vertex& from, const Vertex& to) {
-        if (!has_vertex(from)) return false;
+        if (!has_vertex(from) || !has_vertex(to)) return false;
         auto& edges = adj_list[from];
         auto it = std::remove_if(edges.begin(), edges.end(),
             [&to](const Edge& e) { return e.to == to; });
@@ -134,6 +134,13 @@ public:
     }
 
     std::vector<Edge> shortest_path(const Vertex& from, const Vertex& to) const {
+
+        for (const auto& [vertex, _] : adj_list) {
+            if (vertex < 0) {
+                throw std::invalid_argument("Graph contains a negative vertex.");
+            }
+        }
+
         std::map<Vertex, Distance> distances;
         std::map<Vertex, Vertex> predecessors;
         for (const auto& [vertex, _] : adj_list) {
